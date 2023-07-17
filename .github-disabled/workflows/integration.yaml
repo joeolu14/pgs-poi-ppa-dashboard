@@ -1,0 +1,62 @@
+name: Integration
+
+on:
+  push:
+    branches:
+      - main
+    # paths:
+    #   - backend/**
+    #   - frontend/**
+    #   - etl/**
+
+env:
+  url_prefix: example
+
+concurrency: 
+  group: ${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ${{ github.repository }}/.github/workflows/build.yaml@main
+    with:
+      tags: ${{ github.sha }}
+    secrets:
+      artifactory-username: ${{ secrets.POI_ARTIFACTORY_USERNAME }}
+      artifactory-password: ${{ secrets.POI_ARTIFACTORY_PASSWORD }}
+      npm-token: ${{ secrets.NPM_TOKEN }}
+
+  deploy-dev:
+    needs:
+      - build
+    concurrency: 
+      group: deploy-dev
+      cancel-in-progress: true
+    uses: ${{ github.repository }}/.github/workflows/deploy.yaml@main
+    with:
+      environment: dev
+      url: https://${{ env.url_prefix }}-dev.pfizer.com
+      env-type: nprod
+      release-version: ${{ github.sha }}
+    secrets:
+      rancher2_access_key: ${{ secrets.POI_NPROD_RANCHER_ACCESS_KEY }}
+      rancher2_secret_key: ${{ secrets.POI_NPROD_RANCHER_SECRET_KEY }}
+      solidserver_username: ${{ secrets.POI_NPROD_SRV_USER }}
+      solidserver_password: ${{ secrets.POI_NPROD_SRV_PASS }}
+      kube-token: ${{ secrets.POI_NPROD_KUBERNETES_TOKEN }}
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+  regression-test:
+    runs-on: [self-hosted, pgs-poi]
+    needs: deploy-dev
+    steps:
+      - run: echo 'Regression test not yet implemented.'
+  integration-test:
+    runs-on: [self-hosted, pgs-poi]
+    needs: deploy-dev
+    steps:
+      - run: echo 'Integration test not yet implemented.'
+  security-test:
+    runs-on: [self-hosted, pgs-poi]
+    needs: deploy-dev
+    steps:
+      - run: echo 'Security test not yet implemented.'

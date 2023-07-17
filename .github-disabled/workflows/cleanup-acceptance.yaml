@@ -1,0 +1,62 @@
+name: Cleanup Acceptance
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+concurrency: 
+  group: Acceptance-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  get-branch-name:
+    runs-on: [self-hosted, pgs-poi]
+    steps:
+      - name: Extract branch name
+        id: extract
+        run: |
+          tmpstr=${GITHUB_HEAD_REF#refs/heads/}
+          tmpstr=${tmpstr//\//-}
+          echo "extract_branch: ${tmpstr,,}"
+          echo "::set-output name=branch::${tmpstr,,}"
+    outputs:
+      branch-name: ${{ steps.extract.outputs.branch }}
+
+  cleanup-acceptance:
+    runs-on: [self-hosted, pgs-poi]
+    needs: get-branch-name
+    environment: 
+      name: acceptance-${{ needs.get-branch-name.outputs.branch-name }}
+    steps:
+      - name: Destroy Acceptance Environment
+        uses: pfizer-digital-manufacuring/pgs-poi-actions/destroy-terraform@v1
+        env:
+          TF_VAR_rancher2_access_key: ${{ secrets.POI_NPROD_RANCHER_ACCESS_KEY }}
+          TF_VAR_rancher2_secret_key: ${{ secrets.POI_NPROD_RANCHER_SECRET_KEY }}
+          TF_VAR_solidserver_username: ${{ secrets.POI_NPROD_SRV_USER }}
+          TF_VAR_solidserver_password: ${{ secrets.POI_NPROD_SRV_PASS }}
+          TF_VAR_NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+        with:
+          environment: acceptance-${{ needs.get-branch-name.outputs.branch-name }}
+          backend-var-files: |
+            project.tfbackend
+            "config_context=pgs-poi-nprod-01"
+            "secret_suffix=${{ needs.get-branch-name.outputs.branch-name }}"
+          var-files: |
+            env_vars/nprod.tfvars
+          vars: |
+            environment=${{ needs.get-branch-name.outputs.branch-name }}
+            release_version=${{ github.sha }}
+          kube-token: "${{ secrets.POI_NPROD_KUBERNETES_TOKEN }}"
+      - name: Remove GitHub Environment
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.repos.deleteAnEnvironment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              environment_name: acceptance-${{ needs.get-branch-name.outputs.branch-name }}
+            })

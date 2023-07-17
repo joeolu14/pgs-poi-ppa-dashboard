@@ -1,0 +1,65 @@
+name: Acceptance
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+    branches:
+      - main
+
+env:
+  url_prefix: example
+
+concurrency: 
+  group: Acceptance-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ${{ github.repository }}/.github/workflows/build.yaml@main
+    with:
+      tags: ${{ github.sha }}
+    secrets:
+      artifactory-username: ${{ secrets.POI_ARTIFACTORY_USERNAME }}
+      artifactory-password: ${{ secrets.POI_ARTIFACTORY_PASSWORD }}
+      npm-token: ${{ secrets.NPM_TOKEN }}
+
+  get-branch-name:
+    runs-on: [self-hosted, pgs-poi]
+    steps:
+      - name: Extract branch name
+        id: extract
+        run: |
+          tmpstr=${GITHUB_HEAD_REF#refs/heads/}
+          tmpstr=${tmpstr//\//-}
+          echo "extract_branch: ${tmpstr,,}"
+          echo "::set-output name=branch::${tmpstr,,}"
+    outputs:
+      branch-name: ${{ steps.extract.outputs.branch }}
+
+  deploy-acceptance:
+    needs: 
+      - build
+      - get-branch-name
+    uses: ${{ github.repository }}/.github/workflows/deploy.yaml@main
+    with:
+      environment: acceptance-${{ needs.get-branch-name.outputs.branch-name }}
+      url: https://${{ env.url_prefix }}-acceptance-${{ needs.get-branch-name.outputs.branch-name }}.pfizer.com
+      env-type: nprod
+      release-version: ${{ github.sha }}
+    secrets:
+      rancher2_access_key: ${{ secrets.POI_NPROD_RANCHER_ACCESS_KEY }}
+      rancher2_secret_key: ${{ secrets.POI_NPROD_RANCHER_SECRET_KEY }}
+      solidserver_username: ${{ secrets.POI_NPROD_SRV_USER }}
+      solidserver_password: ${{ secrets.POI_NPROD_SRV_PASS }}
+      kube-token: ${{ secrets.POI_NPROD_KUBERNETES_TOKEN }}
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+
+  acceptance-test:
+    runs-on: [self-hosted, pgs-poi]
+    needs: deploy-acceptance
+    steps:
+      - run: echo 'Acceptance test not yet implemented.'

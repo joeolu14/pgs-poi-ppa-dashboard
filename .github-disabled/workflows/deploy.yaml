@@ -1,0 +1,70 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      url:
+        required: true
+        type: string
+      env-type:
+        required: false
+        type: string
+        default: nprod
+      release-version:
+        required: true
+        type: string
+    secrets:
+      rancher2_access_key:
+        required: true
+      rancher2_secret_key:
+        required: true
+      solidserver_username:
+        required: true
+      solidserver_password:
+        required: true
+      kube-token:
+        required: true
+      NEO4J_PASSWORD:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, pgs-poi]
+    environment: 
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.url }}
+    steps:
+      - name: Deploy to ${{ inputs.environment }} Environment
+        uses: pfizer-digital-manufacuring/pgs-poi-actions/deploy-terraform@v1
+        env:
+          TF_VAR_rancher2_access_key: ${{ secrets.rancher2_access_key }}
+          TF_VAR_rancher2_secret_key: ${{ secrets.rancher2_secret_key }}
+          TF_VAR_solidserver_username: ${{ secrets.solidserver_username }}
+          TF_VAR_solidserver_password: ${{ secrets.solidserver_password }}
+          TF_VAR_NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+        with:
+          environment: ${{ inputs.environment }}
+          backend-var-files: |
+            project.tfbackend
+            "config_context=pgs-poi-${{ inputs.env-type }}-01"
+            "secret_suffix=${{ inputs.environment }}"
+          var-files: |
+            env_vars/${{ inputs.env-type }}.tfvars
+          vars: |
+            "environment=${{ inputs.environment }}"
+            release_version=${{ inputs.release-version }}
+          kube-token: "${{ secrets.kube-token }}"
+  smoke-test:
+    runs-on: [self-hosted, pgs-poi]
+    needs: deploy
+    steps:
+      - run: echo 'Smoke test not yet implemented.'
+  functional-test:
+    runs-on: [self-hosted, pgs-poi]
+    needs: deploy
+    steps:
+      - run: echo 'Functional test not yet implemented.'
+  

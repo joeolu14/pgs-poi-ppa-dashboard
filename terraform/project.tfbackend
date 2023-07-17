@@ -1,0 +1,1 @@
+namespace = "tfstate-project-name-normalized"  // the tfstate namespace created by the infrastructure repo.

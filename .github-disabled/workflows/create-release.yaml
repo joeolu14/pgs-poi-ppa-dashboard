@@ -1,0 +1,81 @@
+name: ++ Create Release
+
+on:
+  workflow_dispatch:
+
+env:
+  url_prefix: example
+
+jobs:
+  release:
+    runs-on: [self-hosted, pgs-poi]
+    steps:
+      - uses: actions/checkout@v2
+      - run: git fetch --prune --unshallow --tags -f
+      - name: Bump version and push tag
+        id: semantic
+        uses: docker://ghcr.io/codfish/semantic-release-action:v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          branches: main
+          plugins: |
+            ['@semantic-release/commit-analyzer', '@semantic-release/release-notes-generator', '@semantic-release/github']
+    outputs:
+      version: ${{ steps.semantic.outputs.release-version }}
+      published: ${{ steps.semantic.outputs.new-release-published }}
+  build:
+    needs:
+      - release
+    if: ${{ needs.release.outputs.published == 'true' }}
+    uses: ${{ github.repository }}/.github/workflows/build.yaml@main
+    with:
+      tags: ${{ needs.release.outputs.version }}
+    secrets:
+      artifactory-username: ${{ secrets.POI_ARTIFACTORY_USERNAME }}
+      artifactory-password: ${{ secrets.POI_ARTIFACTORY_PASSWORD }}
+      npm-token: ${{ secrets.NPM_TOKEN }}
+
+  deploy-stage:
+    needs:
+      - release
+      - build
+    if: ${{ needs.release.outputs.published == 'true' }}
+    concurrency: 
+      group: deploy-stage
+      cancel-in-progress: true
+    uses: ${{ github.repository }}/.github/workflows/deploy.yaml@main
+    with:
+      environment: stage
+      url: https://${{ env.url_prefix }}-stage.pfizer.com
+      env-type: nprod
+      release-version: ${{ needs.release.outputs.version }}
+    secrets:
+      rancher2_access_key: ${{ secrets.POI_NPROD_RANCHER_ACCESS_KEY }}
+      rancher2_secret_key: ${{ secrets.POI_NPROD_RANCHER_SECRET_KEY }}
+      solidserver_username: ${{ secrets.POI_NPROD_SRV_USER }}
+      solidserver_password: ${{ secrets.POI_NPROD_SRV_PASS }}
+      kube-token: ${{ secrets.POI_NPROD_KUBERNETES_TOKEN }}
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+  deploy-prod:
+    needs:
+      - release
+      - deploy-stage
+    if: ${{ needs.release.outputs.published == 'true' }}
+    concurrency: 
+      group: deploy-prod
+      cancel-in-progress: true
+    uses: ${{ github.repository }}/.github/workflows/deploy.yaml@main
+    with:
+      environment: prod
+      url: https://${{ env.url_prefix }}.pfizer.com
+      env-type: prod
+      release-version: ${{ needs.release.outputs.version }}
+    secrets:
+      rancher2_access_key: ${{ secrets.POI_PROD_RANCHER_ACCESS_KEY }}
+      rancher2_secret_key: ${{ secrets.POI_PROD_RANCHER_SECRET_KEY }}
+      solidserver_username: ${{ secrets.POI_PROD_SRV_USER }}
+      solidserver_password: ${{ secrets.POI_PROD_SRV_PASS }}
+      kube-token: ${{ secrets.POI_PROD_KUBERNETES_TOKEN }}
+      NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+  

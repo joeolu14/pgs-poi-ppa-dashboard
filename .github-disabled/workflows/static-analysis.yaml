@@ -1,0 +1,124 @@
+name: Static Analysis
+
+on:
+  pull_request:
+  push:
+    paths:
+      - frontend/**
+      - backend/**
+      - etl/**
+
+concurrency: 
+  group: SCA-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -- Style Enforcement
+  style:
+    runs-on: [self-hosted, pgs-poi]
+    strategy:
+      fail-fast: false
+      matrix:
+        paths:
+          - frontend
+          - backend
+          - etl
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pfizer-digital-manufacuring/pgs-poi-actions/setup-node@v1
+        with:
+          node-version: 14
+          manager: yarn
+      - name: Install Packages
+        working-directory: ${{ matrix.path }}
+        run: yarn install
+      - name: Format / Style Test
+        if: always()
+        working-directory: ${{ matrix.path }}
+        run: yarn prettier
+
+  # -- Code Linting
+  lint:
+    runs-on: [self-hosted, pgs-poi]
+    strategy:
+      fail-fast: false
+      matrix:
+        paths:
+          - frontend
+          - backend
+          - etl
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pfizer-digital-manufacuring/pgs-poi-actions/setup-node@v1
+        with:
+          node-version: 14
+          manager: yarn
+      - name: Install Packages
+        working-directory: ${{ matrix.path }}
+        run: yarn install
+      - name: Lint Test
+        if: always()
+        working-directory: ${{ matrix.path }}
+        run: yarn lint
+
+  # -- Static Unit Testing
+  unit:
+    runs-on: [self-hosted, pgs-poi]
+    strategy:
+      fail-fast: false
+      matrix:
+        paths:
+          - frontend
+          - backend
+          - etl
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pfizer-digital-manufacuring/pgs-poi-actions/setup-node@v1
+        with:
+          node-version: 14
+          manager: yarn
+      - name: Install Packages
+        working-directory: ${{ matrix.path }}
+        run: yarn install
+      - name: Unit Test
+        if: always()
+        working-directory: ${{ matrix.path }}
+        run: yarn test
+
+  # -- Static Security Testing
+  security:
+    runs-on: [self-hosted, pgs-poi]
+    strategy:
+      fail-fast: false
+      matrix:
+        paths:
+          - frontend
+          - backend
+          - etl
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pfizer-digital-manufacuring/pgs-poi-actions/setup-node@v1
+        with:
+          node-version: 14
+          manager: yarn
+      - name: Install Packages
+        working-directory: ${{ matrix.path }}
+        run: yarn install
+      - name: Audit
+        if: always()
+        working-directory: ${{ matrix.path }}
+        run: |
+          yarn audit
+
+  # -- Sonarqube Testing 
+  sonarqube:
+    runs-on: [sonarqube]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          

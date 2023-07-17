@@ -1,0 +1,2 @@
+config_context    = "pgs-poi-prod-01"
+secret_suffix     = "prod"

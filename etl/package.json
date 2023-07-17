@@ -1,0 +1,33 @@
+{
+  "name": "adonis-slim-app",
+  "version": "4.1.0",
+  "adonis-version": "4.1.0",
+  "description": "Smallest possible application for adonisjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node ace test"
+  },
+  "keywords": [
+    "adonisjs",
+    "adonis-app"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@adonisjs/ace": "^11.3.1",
+    "@adonisjs/cli": "^4.0.13",
+    "@adonisjs/fold": "^8.2.0",
+    "@adonisjs/framework": "^5.0.13",
+    "@adonisjs/ignitor": "^2.0.8"
+  },
+  "resolutions": {
+    "marked": ">=4.0.10",
+    "set-value": ">=3.0.1",
+    "edge.js": ">=5.3.2"
+  },
+  "autoload": {
+    "App": "./app"
+  }
+}

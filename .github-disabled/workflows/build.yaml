@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      tags:
+        required: false
+        type: string
+    secrets:
+      artifactory-username:
+        required: true
+      artifactory-password:
+        required: true
+      npm-token:
+        required: false
+
+jobs:
+  build-docker:
+    runs-on: [self-hosted, pgs-poi]
+    strategy:
+      matrix:
+        include:
+          - app: frontend
+            context: frontend
+          - app: backend
+            context: backend
+          - app: etl
+            context: etl
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build image
+        uses: pfizer-digital-manufacuring/pgs-poi-actions/build@v1
+        with:
+          project-name: Usage Tracker
+          app-name: ${{ matrix.app }}
+          app-context: ${{ matrix.context }}
+          tags: |
+            ${{ inputs.tags }}
+          artifactory-username: ${{ secrets.artifactory-username }}
+          artifactory-password: ${{ secrets.artifactory-password }}
